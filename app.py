@@ -1,9 +1,10 @@
 import os
 import cv2
 import time
-from cv2 import VideoCapture
+import psutil
 import streamlit as st
 from face_detection import FaceDetection
+from benchmark import Tracker
 
 # Side bar
 st.sidebar.header('Control Panel')
@@ -25,6 +26,15 @@ exit_button = st.sidebar.button('Exit')
 st.subheader('Real-time Face Detection')
 display = st.image([])
 
+# Config Tracker
+save_dir = './benchmark/saved'
+if not os.path.exists(save_dir):
+    os.mkdir(save_dir)
+    
+tracker = Tracker(save_dir)
+tracker.add_criteria(['t_total', 't_capture', 't_detect', 't_drawrec', 't_display', 'fps', 'cpu', 'ram'])
+tracker.config_scheduler(every=30, period='second')
+
 def main():
     if app_mode == 'Checkin mode':
         
@@ -36,26 +46,33 @@ def main():
         
         print('Starting at resolution: {}x{}'.format(model.input_size[1], model.input_size[0]))  
         
+        # Config Tracker
         
         while not exit_button:
             begin = time.time()
-            
             suc, frame = video_capture.read()
+            t_capture = time.time() - begin
             
             if suc:
+                begin = time.time()
                 faces, locs = model.detect(frame)
+                t_detect = time.time() - begin
                 
                 # Draw recs
+                begin = time.time()
                 if faces is not None:
                     for loc in locs:
                         cv2.rectangle(frame, loc, (244, 134, 66), cv2.LINE_4)
+                t_drawrec = time.time() - begin
                 
                 # Display image
+                begin = time.time()
                 display.image(frame, channels='BGR', use_column_width=True)
                 del frame
+                t_display = time.time() - begin
                 
                 # Display stats
-                total = time.time() - begin
+                t_total = t_capture + t_detect + t_drawrec + t_display
                 
                 stats.write('''
                         * FPS - {:>8.1f}FPS
@@ -64,10 +81,24 @@ def main():
 
                         * Faces - {:>8}
                             '''.format(
-                                1/total,
-                                total,
+                                1/t_total,
+                                t_total,
                                 len(faces) if faces is not None else 0
                             ))
+                
+                tracker.track({
+                    't_total': t_total,
+                    't_capture': t_capture, 
+                    't_detect': t_detect, 
+                    't_drawrec': t_drawrec, 
+                    't_display': t_display, 
+                    'fps': 1/t_total, 
+                    'cpu': psutil.cpu_percent(), 
+                    'ram': psutil.virtual_memory().percent
+                })
+                
+                tracker.run_pending() # Check scheduler
+                
             else:
                 print('Cant capture image!')
             
