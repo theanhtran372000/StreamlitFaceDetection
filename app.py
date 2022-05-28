@@ -1,10 +1,11 @@
 import os
 import cv2
 import time
+from matplotlib.pyplot import draw
 import psutil
 import streamlit as st
 from face_detection import FaceDetection
-from benchmark import Tracker
+from benchmark import Tracker, GraphDrawer
 
 # Side bar
 st.sidebar.header('Control Panel')
@@ -42,18 +43,14 @@ def main():
         
         # Graph
         st.subheader('Graph')
-        st.markdown('**Time**')
-        time_graph = st.empty()
         
-        st.markdown('**FPS**')
-        fps_graph = st.empty()
-        
-        st.markdown('**CPU**')
-        cpu_graph = st.empty()
-        
-        st.markdown('**RAM**')
-        ram_graph = st.empty()
-        
+        # Draw graph
+        drawer = GraphDrawer(tracker)
+        drawer.add_graph('time', ['time', 't_total', 't_capture', 't_detect', 't_drawrec', 't_display'], index='time')
+        drawer.add_graph('fps', ['time', 'fps'], index='time')
+        drawer.add_graph('cpu', ['time', 'cpu'], index='time')
+        drawer.add_graph('ram', ['time', 'ram'], index='time')
+        drawer.config_scheduler(every=30, period='second')
         
         # Video capture device
         video_capture = cv2.VideoCapture(0)
@@ -116,20 +113,8 @@ def main():
                     'ram': psutil.virtual_memory().percent
                 })
                 
-                tracker.run_pending() # Check scheduler
-                
-                if time.time() - since > UPDATE_EVERY:
-                    if tracker.has_saved():
-                        since = time.time()
-                        
-                        # Load latest data
-                        df = tracker.load_latest_data()
-                        
-                        # Display it
-                        time_graph.line_chart(df[['time', 't_total', 't_capture', 't_detect', 't_drawrec', 't_display']].set_index('time'))
-                        fps_graph.line_chart(df[['time', 'fps']].set_index('time'))
-                        cpu_graph.line_chart(df[['time', 'cpu']].set_index('time'))
-                        ram_graph.line_chart(df[['time', 'ram']].set_index('time'))
+                # Check update graphs
+                drawer.run_pending()
                 
             else:
                 print('Cant capture image!')
