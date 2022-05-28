@@ -7,9 +7,11 @@ import schedule
 
 class Tracker:
     def __init__(self, save_dir='.'):
-        self.criteria_list = ['date', 'time'] # date and time are always tracked
+        self.criteria_list = ['time'] # date and time are always tracked
         self.data_frame = pd.DataFrame(columns=self.criteria_list)
         self.save_dir = save_dir
+        if not os.path.exists(self.save_dir):
+            os.mkdir(self.save_dir)
     
     def add_criteria(self, criteria_list):
         """Add a new list of tracking criteria to the tracking system
@@ -36,9 +38,7 @@ class Tracker:
         
         # Add time info
         now = datetime.now()
-        today = datetime.today()
-        report_dict['date'] = today.strftime("%d/%m/%Y")
-        report_dict['time'] = now.strftime("%H:%M:%S")
+        report_dict['time'] = now.strftime("%d/%m/%Y %H:%M:%S")
 
         # Check data compatibility
         keys = report_dict.keys()
@@ -108,7 +108,7 @@ class Tracker:
             df (DataFrame): All tracked info
         """
         filelist = os.listdir(self.save_dir)
-        
+        filelist.sort()
         assert len(filelist) > 0, "No data found"
         
         csv_list = []
@@ -125,6 +125,33 @@ class Tracker:
         df = pd.concat(csv_list)
         df.reset_index(inplace=True)
         return df
+    
+    def load_latest_data(self):
+        """Load the latest data saved
+        """
+        
+        filelist = os.listdir(self.save_dir)
+        filelist.sort()
+        assert len(filelist) > 0, "No data found"
+        
+        file = filelist[-1]
+        link = os.path.join(self.save_dir, file)
+        df = pd.read_csv(link)
+        df.reset_index(inplace=True)
+        return df
+    
+    def has_saved(self):
+        """Check if there any file saved
+
+        Returns:
+            result (bool)
+        """
+        return len(os.listdir(self.save_dir)) > 0
+        
+        
+        
+        
+        
             
             
         

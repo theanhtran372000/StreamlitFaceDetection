@@ -22,10 +22,6 @@ stats = st.sidebar.markdown('Stats')
 st.sidebar.subheader('Control')
 exit_button = st.sidebar.button('Exit')
 
-# Main bar
-st.subheader('Real-time Face Detection')
-display = st.image([])
-
 # Config Tracker
 save_dir = './benchmark/saved'
 if not os.path.exists(save_dir):
@@ -37,6 +33,27 @@ tracker.config_scheduler(every=30, period='second')
 
 def main():
     if app_mode == 'Checkin mode':
+        # Display in Checkin mode
+        # Main bar
+        st.subheader('Real-time Face Detection')
+        display = st.image([])
+        
+        st.markdown('---')
+        
+        # Graph
+        st.subheader('Graph')
+        st.markdown('**Time**')
+        time_graph = st.empty()
+        
+        st.markdown('**FPS**')
+        fps_graph = st.empty()
+        
+        st.markdown('**CPU**')
+        cpu_graph = st.empty()
+        
+        st.markdown('**RAM**')
+        ram_graph = st.empty()
+        
         
         # Video capture device
         video_capture = cv2.VideoCapture(0)
@@ -46,8 +63,10 @@ def main():
         
         print('Starting at resolution: {}x{}'.format(model.input_size[1], model.input_size[0]))  
         
-        # Config Tracker
+        since = time.time()
+        UPDATE_EVERY = 30 # second
         
+        # Config Tracker
         while not exit_button:
             begin = time.time()
             suc, frame = video_capture.read()
@@ -98,6 +117,19 @@ def main():
                 })
                 
                 tracker.run_pending() # Check scheduler
+                
+                if time.time() - since > UPDATE_EVERY:
+                    if tracker.has_saved():
+                        since = time.time()
+                        
+                        # Load latest data
+                        df = tracker.load_latest_data()
+                        
+                        # Display it
+                        time_graph.line_chart(df[['time', 't_total', 't_capture', 't_detect', 't_drawrec', 't_display']].set_index('time'))
+                        fps_graph.line_chart(df[['time', 'fps']].set_index('time'))
+                        cpu_graph.line_chart(df[['time', 'cpu']].set_index('time'))
+                        ram_graph.line_chart(df[['time', 'ram']].set_index('time'))
                 
             else:
                 print('Cant capture image!')
